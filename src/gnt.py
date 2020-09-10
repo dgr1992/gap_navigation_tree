@@ -11,6 +11,8 @@ class GapNavigationTree:
 
         self.root = [None] * 360
 
+        self.visualise = True
+
         self._init_publishers()
         self._init_subscribers()
 
@@ -19,7 +21,7 @@ class GapNavigationTree:
         Initialise subscribers
         """
         self.sub_critical_event = rospy.Publisher("critical_event", CriticalEvent, self._receive_critical_event queue_size=5)
-        self.sub_gap_move = rospy.Publisher("gap_move", GapMove, self._receive_move_event, queue_size=5)
+        self.sub_gap_move = rospy.Publisher("gap_move", GapMove, self._handle_move_event, queue_size=5)
 
     def _init_publishers(self):
         """
@@ -29,16 +31,22 @@ class GapNavigationTree:
 
     def run(self):
         """
+        Main loop
         """
-        pass
+        if self.visualise:
+            self.graph_visualisation = GraphVisualisation()
+            self.graph_visualisation.show()
+
+        while not rospy.is_shutdown():
+
+            if self.visualise and self.graph_visualisation.redraw:
+                self.graph_visualisation.draw()
 
     def _receive_critical_event(self, data):
         """
         Receive critical event
         """
         event = CriticalEventEnum(data.event_type)
-        #data.angle_old
-        #data.angle_new
 
         if event == CriticalEventEnum.APPEAR:
             self._handle_appear(data.angle_new)
@@ -51,91 +59,154 @@ class GapNavigationTree:
 
         if event == CriticalEventEnum.MERGE:
             self._handle_merge(data.angle_old, data.angle_new)
+      
+    def _handle_move_event(self,data):
+        """
+        Handle the move event. Update the position of the gap.
 
-        
-    def _receive_move_event(self,data):
+        data (GapMove): angle where the gap appeared before and the angle where the gap is now
         """
-        Receive move event
-        """
-        self.root[data.angle_new] = self.root[data.angle_old]
-        self.root[data.angle_old] = None
+        angle_old = data.angle_old
+        angle_new = data.angle_new
+
+        self.root[angle_new] = self.root[angle_old]
+        self.root[angle_old] = None
 
     def _handle_appear(self, angle):
         """
-        Gap appear at angle.
+        Gap appear at angle. Create a new node representing the gap.
+
+        Parameters:
+        angle (int): Angle at which the gap appeared
         """
         node = TreeNode()
-        #node.appear = True
-        #node.appearents_count = 0
         self.root[angle] = node
+
+        # update graph
+        self.graph_visualisation.add_node_to_root(node)
+        self.graph_visualisation.redraw = True
 
     def _handle_disappear(self, angle):
         """
         Gap at angle disappear.
         """
+        if len(self.root[index].children) > 0:
+            self._recursive_remove_childs_from_graph(self.root[index])
+
+        # update graph
+        self.graph_visualisation.remove_node(self.root[index])
+        self.graph_visualisation.redraw = True
+
         self.root[angle] = None
 
-    def _handle_split(self, angle_old, angle_new):
+    def _recursive_remove_childs_from_graph(self, node):
         """
-        Gap at angle_ splits into angle_old and angle_new
+        Check the node for childs and remove them from the graph
+        """
+        if len(node.children) != 0:
+            break
+        
+        # remove all connected nodes
+        for child in nodes.children:
+            self._recursive_remove_childs(child)
+            self.graph_visualisation.remove_node(child)
+
+    def _handle_split(self, angle_1, angle_2):
+        """
+        Gap at angle_splits into angle_1 and angle_2
         """        
         angle = None
 
-        # check order angles asc
-        start = angle_old
-        end = angle_new
-        if angle_new < start:
-            start = angle_new
-            end = angle_old
+        # order angles asc
+        start = angle_1
+        end = angle_2
+        if angle_2 < start:
+            start = angle_2
+            end = angle_1
 
         # find the gap that was splitted
         for i in range(start, (end + 1) % len(self.root)):
             if self.root[i] != None:
                 angle = i
 
-        if len(self.gnt_root.depth_jumps[index].nodes) == 2:
-            # get the splitting node
-            node_splitting = self.root[index]
-
-            # delete 
-            self.root[index] = None
-
-            if index_new < index_old:
-                self.root[index_new] = node_splitting.nodes[0]
-                self.root[index_old] = node_splitting.nodes[1]
-            else:
-                self.root[index_old] = node_splitting.nodes[0]
-                self.root[index_new] = node_splitting.nodes[1]
-
-            #self.root[index_new].critical_event = CriticalEvent.SPLIT
-            #self.root[index_new].critical_event_count = 10
-            #self.root[index_old].critical_event = CriticalEvent.SPLIT
-            #self.root[index_old].critical_event_count = 10
-            
+        # the node representing the splitted gap has childs if the appeard gaps are kown
+        if len(self.root[index].children) == 2:
+            self._gap_split_existing(angle, angle_1, angle_2)
         else:
-            # create new nodes
-            self.gnt_root.depth_jumps[angle] = None
-
-            node1 = TreeNode()
-            #node1.critical_event = CriticalEvent.SPLIT
-            #node1.critical_event_count = 6
-            self.root[angle_old] = node1
+            self._gap_split_new(angle, angle_1, angle_2)
             
-            node2 = TreeNode()
-            #node2.critical_event = CriticalEvent.SPLIT
-            #node2.critical_event_count = 6
-            self.root[angle_new] = node2
+    def _gap_split_existing(self, angle_splitted, angle_1, angle_2):
+        """
+        From node at angle_splitted get the childs and place them at angle_1 and angle_1.
 
+        Parameters:
+        angle_splitted (int): Angle of the gap that splitted
+        angle_1 (int): First angle where the first child needs to be placed in the tree
+        angle_2 (int): Second angle where the second child needs to be placed in the tree
+        """
+        # get the splitting node
+        node_splitting = self.root[index]
+        
+        # remove node from tree 
+        self.root[angle_splitted] = None
+
+        # remove edge bewteen root and the splitting node
+        self.graph_visualisation.remove_edge_between_root_and_node(node_splitting)
+
+        # updated the tree by adding the nodes resulted from split
+        if angle_2 < angle_1:
+            self.root[angle_2] = node_splitting.nodes[0]
+            self.root[angle_1] = node_splitting.nodes[1]
+        else:
+            self.root[angle_1] = node_splitting.nodes[0]
+            self.root[angle_2] = node_splitting.nodes[1]
+
+        # connect the nodes to root
+        self.graph_visualisation.add_edge_between_root_and_node(self.root[angle_1])
+        self.graph_visualisation.add_edge_between_root_and_node(self.root[angle_2])
+
+        self.graph_visualisation.redraw = True
     
-    def _handle_merge(self, angle_old, angle_new):
+    def _gap_split_new(self, angle_splitted, angle_1, angle_2):
         """
-        Gap at angle_old and angle_new merge into angle_new.
-        """
-        node_1 = self.root[angle_old]
-        node_2 = self.root[angle_new]
+        Create new nodes for angle_1 and angle_2.
 
+        Parameters:
+        angle_splitted (int): Angle of the gap that splitted
+        angle_1 (int): First angle for new node
+        angle_2 (int): Second angle for new node
+        """
+
+        # remove node, which represents the splitted gap, from the graph
+        self.graph_visualisation.remove_node(self.root[angle_splitted])
+        self.root[angle_splitted] = None
+
+        # create new nodes and add to the root
+        node1 = TreeNode()
+        self.root[angle_1] = node1
+
+        node2 = TreeNode()
+        self.root[angle_2] = node2
+
+        # update graph
+        self.graph_visualisation.add_node_to_root(self.root[angle_1])
+        self.graph_visualisation.add_node_to_root(self.root[angle_2])
+        self.graph_visualisation.redraw = True
+
+    def _handle_merge(self, angle_1, angle_2):
+        """
+        Gap at angle_1 and angle_2 merge into angle_2.
+
+        angle_1 (int):
+        angle_2 (int):
+        """
+        # get the merging nodes
+        node_1 = self.root[angle_1]
+        node_2 = self.root[angle_2]
+        
+        # merge nodes
         node = TreeNode()
-        if angle_new < angle_old:
+        if angle_2 < angle_1:
             node.nodes.append(node_2)
             node.nodes.append(node_1)
         else:
@@ -143,9 +214,9 @@ class GapNavigationTree:
             node.nodes.append(node_2)
         
         # delete old from depth jumps
-        self.root[angle_old] = None
+        self.root[angle_1] = None
         # add the merged node
-        self.root[angle_new] = node
+        self.root[angle_2] = node
 
 
 if __name__ == "__main__":
