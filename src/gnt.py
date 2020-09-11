@@ -3,6 +3,7 @@ import rospy
 from critical_event_enum import CriticalEventEnum
 from tree_node import TreeNode
 from gap_sensor.msg import MovedGaps, GapMove
+from gap_navigation_tree.msg import GapTree, GapTreeNode
 
 class GapNavigationTree:
     
@@ -27,7 +28,7 @@ class GapNavigationTree:
         """
         Initialise publishersubscribers
         """
-        pass
+        self.pub_tree = rospy.Publisher("gap_tree", GapTree, queue_size=5)
 
     def run(self):
         """
@@ -41,6 +42,7 @@ class GapNavigationTree:
 
             if self.visualise and self.graph_visualisation.redraw:
                 self.graph_visualisation.draw()
+                self._publish_gap_tree()
 
     def _receive_critical_event(self, data):
         """
@@ -218,6 +220,22 @@ class GapNavigationTree:
         # add the merged node
         self.root[angle_2] = node
 
+    def _publish_gap_tree(self):
+        """
+        Publish the gaps visibile from the root on the topic gap_tree.
+        """
+        # Create the gap tree msg and convert the first layer of root to ros msgs
+        gap_tree = GapTree()
+        for node in self.root:
+            if node != None:
+                gap_tree_node = GapTreeNode()
+                gap_tree_node.id = node.id
+                gap_tree_node
+            else:
+                gap_tree.root.add(None)
+
+
+        self.pub_tree.publish(gap_tree)
 
 if __name__ == "__main__":
     try:
