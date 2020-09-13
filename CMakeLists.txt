@@ -104,9 +104,9 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-  LIBRARIES gap_navigation_tree
-  CATKIN_DEPENDS rospy std_msgs
-  DEPENDS system_lib
+  LIBRARIES gap_navigation_tree 
+  CATKIN_DEPENDS rospy std_msgs message_runtime
+  DEPENDS
 )
 
 ###########
