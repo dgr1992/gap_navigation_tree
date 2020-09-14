@@ -2,8 +2,9 @@ import rospy
 
 from critical_event_enum import CriticalEventEnum
 from tree_node import TreeNode
-from gap_sensor.msg import MovedGaps, GapMove
+from gap_sensor.msg import MovedGaps, GapMove, CriticalEvent, CriticalEvents
 from gap_navigation_tree.msg import GapTree, GapTreeNode
+from graph_visualisation import GraphVisualisation
 
 class GapNavigationTree:
     
@@ -21,7 +22,7 @@ class GapNavigationTree:
         """
         Initialise subscribers
         """
-        self.sub_critical_event = rospy.Publisher("critical_event", CriticalEvent, self._receive_critical_event queue_size=5)
+        self.sub_critical_event = rospy.Publisher("critical_event", CriticalEvent, self._receive_critical_event, queue_size=5)
         self.sub_gap_move = rospy.Publisher("gap_move", GapMove, self._handle_move_event, queue_size=5)
 
     def _init_publishers(self):
@@ -106,7 +107,7 @@ class GapNavigationTree:
         Check the node for childs and remove them from the graph
         """
         if len(node.children) != 0:
-            break
+            return
         
         # remove all connected nodes
         for child in nodes.children:
