@@ -35,7 +35,7 @@ class GapNavigationTree:
         """
         Initialise publishersubscribers
         """
-        self.pub_tree = rospy.Publisher("gap_tree", GapTree, queue_size=5)
+        self.pub_tree = rospy.Publisher("gap_tree", GapTreeNode, queue_size=5)
 
     def run(self):
         """
@@ -53,7 +53,6 @@ class GapNavigationTree:
                     self.gap_visualisation.draw_gaps_tree_nodes(self.root)
                 if self.graph_visualisation.redraw:
                     self.graph_visualisation.draw()
-                    self._publish_gap_tree()
 
     def _handle_critical_event(self, data):
         """
@@ -103,7 +102,6 @@ class GapNavigationTree:
 
         self.gap_visualisation.redraw = True
 
-
     def _handle_collection(self,data):
         """
         """
@@ -114,6 +112,9 @@ class GapNavigationTree:
         for move in data.gap_moves.gap_moves:
             self._handle_move_event(move)
 
+        if len(data.events.events) > 0:
+            self._publish_gap_tree()
+        
         self.lock.release()
 
     def _handle_appear(self, angle):
@@ -168,11 +169,6 @@ class GapNavigationTree:
         if angle_new_2 < start:
             start = angle_new_2
             end = angle_new_1
-
-        # find the gap that was splitted
-        #for i in range(start, (end + 1) % len(self.root)):
-        #    if self.root[i] != None:
-        #        angle = i
 
         # the node representing the splitted gap has childs if the appeard gaps are kown
         if self.root[angle_old] != None:
@@ -279,17 +275,27 @@ class GapNavigationTree:
         Publish the gaps visibile from the root on the topic gap_tree.
         """
         # Create the gap tree msg and convert the first layer of root to ros msgs
-        gap_tree = GapTree()
+        gap_tree = GapTreeNode()
         for node in self.root:
             if node != None:
-                gap_tree_node = GapTreeNode()
-                gap_tree_node.id = node.id
-                gap_tree.root.append(gap_tree_node)
-            else:
-                gap_tree.root.append(None)
-
+                gap_tree_node = self._convert_node_ros_msg(node)
+                gap_tree.children.append(gap_tree_node)
 
         self.pub_tree.publish(gap_tree)
+
+    def _convert_node_ros_msg(self, node):
+        """
+        Convertes the given tree node to a ros message tree node
+        """
+        node_ros_msg = GapTreeNode()
+        gap_tree_node.id = node.id
+
+        if len(node.children) > 0:
+            for child in node:
+                child_node_ros_msg = self._convert_node_ros_msg(child)
+                node_ros_msg.children.append(child_node_ros_msg)
+
+        return node_ros_msg
 
 if __name__ == "__main__":
     try:

@@ -5,6 +5,4 @@ class TreeNode:
         self.id = TreeNode.node_count
         TreeNode.node_count = TreeNode.node_count + 1
 
-        self.parent = None
         self.children = []
-        self.primitive = False
