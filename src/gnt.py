@@ -4,7 +4,7 @@ import copy
 from critical_event_enum import CriticalEventEnum
 from tree_node import TreeNode
 from gap_sensor.msg import MovedGaps, GapMove, CriticalEvent, CriticalEvents, CollectionCriticalAndMoved
-from gap_navigation_tree.msg import GapTree, GapTreeNode
+from gap_navigation_tree.msg import GapTreeNode, GapTreeNodes
 from graph_visualisation import GraphVisualisation
 from gap_visualiser import GapVisualiser
 
@@ -35,7 +35,7 @@ class GapNavigationTree:
         """
         Initialise publishersubscribers
         """
-        self.pub_tree = rospy.Publisher("gap_tree", GapTreeNode, queue_size=5)
+        self.pub_tree = rospy.Publisher("gap_tree", GapTreeNodes, queue_size=5)
 
     def run(self):
         """
@@ -274,28 +274,45 @@ class GapNavigationTree:
         """
         Publish the gaps visibile from the root on the topic gap_tree.
         """
+        ros_msg_nodes = self._convert_root_to_ros_msg()
+
+        self.pub_tree.publish(ros_msg_nodes)
+
+    def _convert_root_to_ros_msg(self):
+        """
+        """
         # Create the gap tree msg and convert the first layer of root to ros msgs
-        gap_tree = GapTreeNode()
+        ros_msg_nodes = GapTreeNodes()
+        
+        #root node
+        ros_msg_node = GapTreeNode()
+        ros_msg_node.id = 0
+
+        ros_msg_nodes.tree_nodes.append(ros_msg_node)
+
         for node in self.root:
             if node != None:
-                gap_tree_node = self._convert_node_ros_msg(node)
-                gap_tree.children.append(gap_tree_node)
+                ros_msg_node.children_ids.append(node.id)
+                ros_msg_nodes.tree_nodes = ros_msg_nodes.tree_nodes + self._convert_node_to_ros_msg(node)
+        
+        return ros_msg_nodes
 
-        self.pub_tree.publish(gap_tree)
-
-    def _convert_node_ros_msg(self, node):
+    def _convert_node_to_ros_msg(self, node):
         """
         Convertes the given tree node to a ros message tree node
         """
-        node_ros_msg = GapTreeNode()
-        gap_tree_node.id = node.id
+        ros_msg_node = GapTreeNode()
+        ros_msg_node.id = node.id
 
-        if len(node.children) > 0:
-            for child in node:
-                child_node_ros_msg = self._convert_node_ros_msg(child)
-                node_ros_msg.children.append(child_node_ros_msg)
+        ros_msg_nodes = []
+        ros_msg_nodes.append(ros_msg_node)
 
-        return node_ros_msg
+        for child in node.children:
+            ros_msg_node.children_ids.append(child.id)
+            ros_msg_nodes = ros_msg_nodes + self._convert_node_to_ros_msg(child)
+
+        return ros_msg_nodes
+        
 
 if __name__ == "__main__":
     try:

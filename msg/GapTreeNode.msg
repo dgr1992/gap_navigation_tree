@@ -1,2 +1,2 @@
 int32 id
-GapTreeNode[] children
+int32[] children_ids
