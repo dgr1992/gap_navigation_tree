@@ -26,10 +26,7 @@ class GapNavigationTree:
         """
         Initialise subscribers
         """
-        #self.sub_critical_event = rospy.Subscriber("critical_event", CriticalEvent, self._handle_critical_event, queue_size=5)
-        #self.sub_gap_move = rospy.Subscriber("gap_move", GapMove, self._handle_move_event, queue_size=5)
         self.sub_collection = rospy.Subscriber("collection_critical_and_moved", CollectionCriticalAndMoved, self._handle_collection, queue_size=15)
-
 
     def _init_publishers(self):
         """
@@ -104,6 +101,9 @@ class GapNavigationTree:
 
     def _handle_collection(self,data):
         """
+        Handles update on topic collection_critical_and_moved
+
+        data (CollectionCriticalAndMoved):
         """
         self.lock.acquire()
         for event in data.events.events:
@@ -134,6 +134,9 @@ class GapNavigationTree:
     def _handle_disappear(self, angle):
         """
         Gap at angle disappear.
+
+        Parameters:
+        angle (int): Angle at which the gap disappeared
         """
         if self.root[angle] != None:
             if len(self.root[angle].children) > 0:
@@ -148,6 +151,9 @@ class GapNavigationTree:
     def _recursive_remove_childs_from_graph(self, node):
         """
         Check the node for childs and remove them from the graph
+
+        Parameters:
+        node (TreeNode): Node that needs to be removed
         """
         if len(node.children) != 0:
             return
@@ -160,6 +166,11 @@ class GapNavigationTree:
     def _handle_split(self, angle_old, angle_new_1, angle_new_2):
         """
         Gap at angle_splits into angle_new_1 and angle_new_2
+
+        Parameters:
+        angle_old (int): angle where the spliting disconitnuity is
+        angle_new_1 (int): angle of appeared discontinuity from split
+        angle_new_2 (int): angle of appeared discontinuity from split
         """        
         angle = None
 
@@ -240,8 +251,10 @@ class GapNavigationTree:
         """
         Gap at angle_old_1 and angle_old_2 merge into angle_new_1.
 
-        angle_new_1 (int):
-        angle_new_2 (int):
+        Paramters:
+        angle_new (int): angle of distcontinuity resulting from merge
+        angle_old_1 (int): angle of first discontinuity that merged
+        angle_old_2 (int): angle of second discontinuity that merged
         """
         # get the merging nodes
         node_1 = self.root[angle_old_1]
@@ -280,6 +293,7 @@ class GapNavigationTree:
 
     def _convert_root_to_ros_msg(self):
         """
+        Converts the local tree to a ROS message
         """
         # Create the gap tree msg and convert the first layer of root to ros msgs
         ros_msg_nodes = GapTreeNodes()
